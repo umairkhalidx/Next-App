@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   /* Light Mode Variables */
@@ -20,8 +21,10 @@
 [data-theme='dark'],
 html[data-theme='dark'] {
   /* Dark Mode Variables */
-  --bg-main: #000000;
-  --bg-header-rgb: 0, 0, 0;
+  --bg-main: #1C1C1E;
+  /* Updated to match AuthModal black */
+  --bg-header-rgb: 28, 28, 30;
+  /* Updated to match #1C1C1E */
   --bg-footer: #000000;
   /* Always Black */
   --text-main: #ededed;
@@ -133,8 +136,10 @@ body {
   align-items: center;
   gap: 0.5rem;
   /* Reduced gap since links have padding */
-  background-color: rgba(243, 244, 246, 0.6);
-  border: 1px solid rgba(229, 231, 235, 0.5);
+  background-color: #F1F2F4;
+  /* Darken: Was rgba 0.6, now solid slightly darker gray like gray-100/200 mix */
+  border: 1px solid #D1D5DB;
+  /* Darken: gray-300 */
   padding: 0.5rem 0.75rem;
   /* Reduced padding */
   border-radius: 9999px;
@@ -151,7 +156,8 @@ body {
 .nav-link {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #6b7280;
+  color: #555c65;
+  /* Darken: slightly darker than gray-500 */
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -185,6 +191,8 @@ body {
   justify-content: flex-end;
   gap: 0.5rem;
   /* Tighter gap for buttons */
+  margin-right: 2rem;
+  /* Move buttons a little to the left */
 }
 
 /* Buttons */
@@ -501,6 +509,9 @@ body {
   .header-center {
     order: 2;
     width: 100%;
+    margin-right: 0;
+    /* Reset margin on mobile */
+    margin-left: 0;
   }
 
   .nav-section {
@@ -516,5 +527,7 @@ body {
     justify-content: center;
     gap: 1rem;
     margin-top: 0.5rem;
+    margin-right: 0;
+    /* Reset margin on mobile */
   }
 }
