@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { EyeIcon, EyeSlashIcon, XMarkIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
+import { login, signup } from '@/app/auth/actions';
+import { useRouter } from 'next/navigation';
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -11,29 +13,81 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: AuthModalProps) {
+    const router = useRouter();
     const [tab, setTab] = useState(defaultTab);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setTab(defaultTab);
             // Prevent body scroll when modal is open
             document.body.style.overflow = 'hidden';
+            setError('');
         } else {
             document.body.style.overflow = 'unset';
+            // Reset form state on close if desired, or keep it.
         }
         return () => {
             document.body.style.overflow = 'unset';
         };
     }, [isOpen, defaultTab]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const onFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        // TODO: Implement actual authentication logic
-        console.log('Form submitted:', { tab, email, password, fullName });
+        setIsLoading(true);
+        setError('');
+
+        const formData = new FormData(e.currentTarget);
+        // Ensure manual state is sync'd if needed, but the inputs have names, so formData is enough.
+
+        try {
+            const action = tab === 'login' ? login : signup;
+            const res = await action({ message: '' }, formData);
+
+            if (res?.error) {
+                setError(res.error);
+                setIsLoading(false);
+            } else if (res?.message) {
+                // Determine if it's a success message or error message
+                // The signup action returns { message: 'Check your email...' } on success
+                // The login action redirects on success (throws NEXT_REDIRECT)
+
+                // If we get here for signup, it might be the "Check email" success
+                if (tab === 'signup') {
+                    // Ideally show a success state or close modal
+                    // For now, let's just close or show the message
+                    // But since it's an "error" state visually in the UI below, we might want a success UI.
+                    // The current UI only has an error box.
+                    // Let's treat it as an error for visibility or add a success box.
+                    // Simple fix: Close modal and let them check email? Or Alert?
+                    alert(res.message);
+                    onClose();
+                } else {
+                    setError(res.message);
+                }
+                setIsLoading(false);
+            } else {
+                // Login redirect usually throws, so we might not reach here unless no error and no message?
+                // If we do, it means success but no redirect happened?
+                setIsLoading(false);
+                onClose();
+            }
+        } catch (err: any) {
+            // Check for Next.js redirect
+            if (err.message === 'NEXT_REDIRECT' || (err.digest && err.digest.startsWith('NEXT_REDIRECT'))) {
+                // Redirecting...
+                onClose();
+                return;
+            }
+            console.error(err);
+            setError('An unexpected error occurred.');
+            setIsLoading(false);
+        }
     };
 
     const socialProviders = [
@@ -121,19 +175,8 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: Aut
                             <div className="relative z-10 flex-none">
                                 <div className="flex items-center gap-3">
                                     <div className="bg-white/20 backdrop-blur-sm w-12 h-12 flex items-center justify-center rounded-xl">
-                                        <svg
-                                            className="w-7 h-7"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={3}
-                                                d="M13 10V3L4 14h7v7l9-11h-7z"
-                                            />
+                                        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
                                         </svg>
                                     </div>
                                     <h1 className="text-3xl font-extrabold tracking-tight">NEXTAPP</h1>
@@ -188,7 +231,16 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: Aut
                                     </div>
                                 </div>
 
-                                <form onSubmit={handleSubmit} className="space-y-5">
+                                <form onSubmit={onFormSubmit} className="space-y-5">
+                                    {error && (
+                                        <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-xl flex items-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {error}
+                                        </div>
+                                    )}
+
                                     <AnimatePresence mode="wait">
                                         {tab === 'signup' && (
                                             <motion.div
@@ -202,11 +254,11 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: Aut
                                                 </label>
                                                 <input
                                                     type="text"
+                                                    name="fullName"
                                                     value={fullName}
                                                     onChange={(e) => setFullName(e.target.value)}
                                                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-transparent focus:border-[#059669] dark:focus:border-[#10b981] focus:bg-white dark:focus:bg-gray-900 transition-all outline-none focus:ring-0 font-medium text-gray-900 dark:text-white"
                                                     placeholder="John Doe"
-                                                    required
                                                 />
                                             </motion.div>
                                         )}
@@ -218,6 +270,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: Aut
                                         </label>
                                         <input
                                             type="email"
+                                            name="email"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-transparent focus:border-[#059669] dark:focus:border-[#10b981] focus:bg-white dark:focus:bg-gray-900 transition-all outline-none focus:ring-0 font-medium text-gray-900 dark:text-white"
@@ -243,6 +296,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: Aut
                                         <div className="relative">
                                             <input
                                                 type={showPassword ? "text" : "password"}
+                                                name="password"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-transparent focus:border-[#059669] dark:focus:border-[#10b981] focus:bg-white dark:focus:bg-gray-900 transition-all outline-none focus:ring-0 font-medium text-gray-900 dark:text-white"
@@ -261,10 +315,23 @@ export default function AuthModal({ isOpen, onClose, defaultTab = 'login' }: Aut
 
                                     <button
                                         type="submit"
-                                        className="w-full bg-[#059669] hover:bg-[#047857] dark:bg-[#10b981] dark:hover:bg-[#059669] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+                                        disabled={isLoading}
+                                        className="w-full bg-[#059669] hover:bg-[#047857] dark:bg-[#10b981] dark:hover:bg-[#059669] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        {tab === 'login' ? 'Sign In' : 'Create Account'}
-                                        <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                        {isLoading ? (
+                                            <>
+                                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                {tab === 'login' ? 'Sign In' : 'Create Account'}
+                                                <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                            </>
+                                        )}
                                     </button>
                                 </form>
 
